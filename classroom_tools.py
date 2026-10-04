@@ -304,7 +304,7 @@ def extract_drive_file(svc: Services, file_id: str, title: str, save_dir: Path) 
                 ex.text = _pptx_text(ex.raw)
             elif mime.startswith("image/"):
                 ex.status = "image"
-                ex.file_path = _save(save_dir, file_id, name, ex.raw)
+                ex.file_path = _save(save_dir, file_id, Path(name).stem + ".jpg", shrink_image(ex.raw))
             elif mime.startswith("text/") or ext in CODE_EXT:
                 ex.text = ex.raw.decode("utf-8", "replace")
             else:
@@ -313,7 +313,7 @@ def extract_drive_file(svc: Services, file_id: str, title: str, save_dir: Path) 
     except ApiError:
         ex.status, ex.reason = "error", "файл недоступний"
         return ex
-    except (ValueError, zipfile.BadZipFile, KeyError, OSError) as e:
+    except (ValueError, zipfile.BadZipFile, KeyError, OSError) as e:  # OSError — також пошкоджене зображення
         ex.status, ex.reason = "error", ("файл завеликий" if "завеликий" in str(e) else "файл пошкоджений або не читається")
         return ex
 
@@ -325,6 +325,18 @@ def extract_drive_file(svc: Services, file_id: str, title: str, save_dir: Path) 
     if mime in (GOOGLE_DOC, GOOGLE_SHEET, GOOGLE_SLIDES):
         ex.meta["revisions"] = revisions_summary(svc, file_id)
     return ex
+
+
+def shrink_image(data: bytes, max_side: int = 1600, quality: int = 80) -> bytes:
+    """Зменшує фото (телефонні знімки по 3–5 МБ) до розміру, який модель може переглянути.
+    Враховує EXIF-орієнтацію, щоб рукопис не був повернутий набік."""
+    from PIL import Image, ImageOps
+    img = ImageOps.exif_transpose(Image.open(io.BytesIO(data)))
+    img = img.convert("RGB")
+    img.thumbnail((max_side, max_side))
+    out = io.BytesIO()
+    img.save(out, "JPEG", quality=quality, optimize=True)
+    return out.getvalue()
 
 
 def _save(save_dir: Path, file_id: str, name: str, data: bytes) -> str:

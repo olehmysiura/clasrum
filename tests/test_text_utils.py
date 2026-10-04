@@ -25,3 +25,13 @@ def test_pseudonym_stable_and_salted():
     assert tu.pseudonym("u1", "s") == tu.pseudonym("u1", "s")
     assert tu.pseudonym("u1", "s") != tu.pseudonym("u1", "t")
     assert tu.pseudonym("u1", "s").startswith("Студент-")
+
+
+def test_shrink_image_limits_size():
+    import io
+    from PIL import Image
+    import classroom_tools as ct
+    buf = io.BytesIO()
+    Image.new("RGB", (4000, 3000), "white").save(buf, "PNG")
+    small = Image.open(io.BytesIO(ct.shrink_image(buf.getvalue())))
+    assert max(small.size) == 1600 and small.format == "JPEG"
