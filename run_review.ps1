@@ -22,7 +22,7 @@ try {
         claude -p "Виконай інструкції з AGENT.md. Тека запуску: $RelRun" `
             --permission-mode dontAsk `
             --allowedTools "Read(./AGENT.md)" "Read(./criteria/**)" "Read(./$RelRun/packets/**)" `
-                           "Read(./$RelRun/files/**)" "Glob" "Write(./$RelRun/results/**)" `
+                           "Read(./$RelRun/files/**)" "Glob" "Edit(./$RelRun/results/**)" `
             --disallowedTools "Bash" "WebFetch" "WebSearch" `
                               "Read(./token.json)" "Read(./credentials.json)" "Read(./state.json)" `
                               "Read(./config.yaml)" "Read(./$RelRun/manifest.json)"

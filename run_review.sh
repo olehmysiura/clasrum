@@ -31,7 +31,7 @@ if ls "$RUN_DIR"/packets/*.json >/dev/null 2>&1; then
   claude -p "Виконай інструкції з AGENT.md. Тека запуску: $RUN_DIR" \
     --permission-mode dontAsk \
     --allowedTools "Read(./AGENT.md)" "Read(./criteria/**)" "Read(./$RUN_DIR/packets/**)" \
-                   "Read(./$RUN_DIR/files/**)" "Glob" "Write(./$RUN_DIR/results/**)" \
+                   "Read(./$RUN_DIR/files/**)" "Glob" "Edit(./$RUN_DIR/results/**)" \
     --disallowedTools "Bash" "WebFetch" "WebSearch" \
                       "Read(./token.json)" "Read(./credentials.json)" "Read(./state.json)" \
                       "Read(./config.yaml)" "Read(./$RUN_DIR/manifest.json)"

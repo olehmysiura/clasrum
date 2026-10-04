@@ -48,7 +48,7 @@ def test_real_rubric_files_parse():
 
 def test_labour_law_rubric_has_all_work_types():
     r = rb.load_rubric(ROOT / "criteria" / "трудове-право.md")
-    assert set(r.work_types) == {"практична", "самостійна", "реферат", "презентація", "доповідь", "контрольна"}
+    assert set(r.work_types) == {"практична", "семінарська", "самостійна", "реферат", "презентація", "доповідь", "контрольна"}
 
 
 @pytest.mark.parametrize("total,grade,ects", [

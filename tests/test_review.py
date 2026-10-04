@@ -29,3 +29,9 @@ def test_summarize():
                  "c1/w1/b": {"course_id": "c1", "total": 70, "grade_num": 3, "ai_risk": "низький"},
                  "c1/w1/c": {"course_id": "c1", "status": "не оцінено"}}}
     assert rv.summarize(state, {"c1": "ТП"}) == [["ТП", 1, 3, 2, 2, 4.0, 80.0, 1]]
+
+
+def test_title_matching_ignores_unicode_form():
+    decomposed = "Самост\u0456\u0438\u0306на робота № 6 «Поняття» "
+    found = rv.ct.find_coursework([{"title": decomposed}], "Самостійна  робота № 6 «Поняття»")
+    assert found["title"] == decomposed

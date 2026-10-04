@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import io
 import re
+import unicodedata
 import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -104,7 +105,11 @@ def list_courses(svc: Services) -> list[dict]:
 
 
 def _norm(s: str | None) -> str:
-    return re.sub(r"\s+", " ", (s or "")).strip().lower()
+    """Порівняння назв: Unicode NFC (у Classroom «й» буває розкладеним на «и» + знак),
+    однакові апострофи, пробіли і регістр."""
+    s = unicodedata.normalize("NFC", s or "")
+    s = re.sub(r"[’ʼ`]", "'", s)
+    return re.sub(r"\s+", " ", s).strip().lower()
 
 
 def find_course(courses: list[dict], name: str, section: str | None = None,

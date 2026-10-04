@@ -24,3 +24,4 @@ __pycache__/
 .venv/
 .pytest_cache/
 .auth_pending.json
+logs_claude_run.txt
