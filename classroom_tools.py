@@ -494,3 +494,56 @@ def write_summary(svc: Services, ssid: str, rows: list[list]) -> None:
     call(svc.sheets.spreadsheets().values().update(
         spreadsheetId=ssid, range=f"'{SUMMARY_TITLE}'!A1", valueInputOption="RAW",
         body={"values": [SUMMARY_HEADERS] + rows}), "Запис підсумку")
+
+
+# ---------- Classroom: запис ЧЕРНЕТКИ оцінки (Спосіб A) ----------
+
+class DraftSkipped(RuntimeError):
+    """Чернетку не записано свідомо (наприклад, викладач уже поставив оцінку)."""
+
+
+class DraftForbidden(RuntimeError):
+    """API відмовив (403): завдання створене не цим проєктом Google Cloud — потрібен Спосіб B."""
+
+
+def write_draft_grade_api(svc: Services, course_id: str, coursework_id: str, submission_id: str,
+                          grade: float) -> dict:
+    """Записує лише draftGrade. Ніколи не змінює assignedGrade і не повертає роботу.
+
+    Перед записом перечитує роботу: якщо вона вже не здана або оцінка вже є — пропускає.
+    Після запису читає значення назад і звіряє.
+    """
+    subs = svc.classroom.courses().courseWork().studentSubmissions()
+    cur = call(subs.get(courseId=course_id, courseWorkId=coursework_id, id=submission_id),
+               "Читання роботи студента")
+    if cur.get("state") != "TURNED_IN":
+        raise DraftSkipped(f"робота вже не в стані «здано» ({cur.get('state')})")
+    if "assignedGrade" in cur or "draftGrade" in cur:
+        raise DraftSkipped(f"у роботі вже є оцінка ({cur.get('assignedGrade', cur.get('draftGrade'))})")
+    try:
+        subs.patch(courseId=course_id, courseWorkId=coursework_id, id=submission_id,
+                   updateMask="draftGrade", body={"draftGrade": grade}).execute(num_retries=RETRIES)
+    except HttpError as e:
+        if getattr(e.resp, "status", None) == 403:
+            raise DraftForbidden(_reason(e) or "403") from e
+        raise ApiError(explain_http_error(e, "Запис чернетки оцінки")) from e
+    back = call(subs.get(courseId=course_id, courseWorkId=coursework_id, id=submission_id),
+                "Перевірка запису чернетки")
+    if back.get("draftGrade") != grade or "assignedGrade" in back or back.get("state") != "TURNED_IN":
+        raise ApiError(f"Після запису значення не збігається: draftGrade={back.get('draftGrade')}")
+    return back
+
+
+def update_draft_status(svc: Services, ssid: str, title: str, key_prefix: str, status: str) -> int:
+    """Оновлює лише колонку «Статус чернетки в Classroom» у рядках цієї роботи (інші клітинки не змінює)."""
+    key_col = chr(ord("A") + KEY_COL_INDEX)
+    status_col = chr(ord("A") + HEADERS.index("Статус чернетки в Classroom"))
+    keys = call(svc.sheets.spreadsheets().values().get(
+        spreadsheetId=ssid, range=f"'{title}'!{key_col}2:{key_col}"), "Читання аркуша").get("values", [])
+    rows = [i + 2 for i, r in enumerate(keys) if r and r[0].startswith(key_prefix + "@")]
+    if rows:
+        call(svc.sheets.spreadsheets().values().batchUpdate(spreadsheetId=ssid, body={
+            "valueInputOption": "RAW",
+            "data": [{"range": f"'{title}'!{status_col}{r}", "values": [[status]]} for r in rows]}),
+            "Оновлення статусу чернетки")
+    return len(rows)

@@ -403,6 +403,63 @@ def cmd_apply(args) -> int:
     return 0 if sheets_ok else 2
 
 
+# ---------- draft-one: тестовий запис ОДНІЄЇ чернетки ----------
+
+def cmd_draft_one(args) -> int:
+    """Записує одну чернетку: спершу Classroom API (Спосіб A), при 403 — інтерфейс (Спосіб B)."""
+    cfg, svc = load_config(), services()
+    grade = float(args.grade)
+    grade = int(grade) if grade.is_integer() else grade
+    key = st.submission_key(args.course_id, args.coursework_id, args.submission_id)
+    state = st.load_state(STATE)
+    mode_key = f"{args.course_id}/{args.coursework_id}"
+    sub = ct.call(svc.classroom.courses().courseWork().studentSubmissions().get(
+        courseId=args.course_id, courseWorkId=args.coursework_id, id=args.submission_id), "Читання роботи")
+    status = None
+    if state["write_mode"].get(mode_key) != "api_forbidden":
+        try:
+            ct.write_draft_grade_api(svc, args.course_id, args.coursework_id, args.submission_id, grade)
+            state["write_mode"][mode_key] = "api"
+            status = "чернетку записано (API)"
+        except ct.DraftForbidden:
+            state["write_mode"][mode_key] = "api_forbidden"
+            log("Classroom API відмовив (403): завдання створене не цим проєктом. Пробую інтерфейс…")
+        except ct.DraftSkipped as e:
+            status = f"пропущено: {e}"
+    if status is None:
+        import classroom_ui as ui
+        if "assignedGrade" in sub or "draftGrade" in sub:
+            status = "пропущено: у роботі вже є оцінка"
+        elif sub.get("state") != "TURNED_IN":
+            status = f"пропущено: робота не в стані «здано» ({sub.get('state')})"
+        else:
+            name = ct.list_students(svc, args.course_id).get(sub["userId"], "")
+            pw = ctx = None
+            try:
+                pw, ctx = ui.open_browser(headless=not args.show)
+                back = ui.write_draft_grade_ui(ctx, sub["alternateLink"], name, str(grade))
+                status = "чернетку записано (інтерфейс)"
+                log(f"Значення в полі після перезавантаження: {back}")
+            except ui.AlreadyGraded as e:
+                status = f"пропущено: {e}"
+            except ui.UiError as e:
+                status = f"не вдалося: {e}"
+            finally:
+                if ctx:
+                    ctx.close()
+                if pw:
+                    pw.stop()
+    st.save_state(state, STATE)
+    log(f"Результат: {status}")
+    log(f"Перевірте в Classroom: {sub.get('alternateLink')}")
+    ssid = cfg.get("spreadsheet_id")
+    if ssid:
+        course = next(c for c in ct.list_courses(svc) if c["id"] == args.course_id)
+        n = ct.update_draft_status(svc, ssid, ct.sheet_title(course), key, status)
+        log(f"Статус у звіті оновлено (рядків: {n}).")
+    return 0 if status.startswith("чернетку записано") or status.startswith("пропущено") else 4
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Перевірка робіт студентів у Google Classroom")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -413,6 +470,13 @@ def main() -> int:
     p.add_argument("--run", required=True)
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(fn=cmd_apply)
+    p = sub.add_parser("draft-one", help="тестовий запис однієї чернетки оцінки")
+    p.add_argument("--course-id", required=True)
+    p.add_argument("--coursework-id", required=True)
+    p.add_argument("--submission-id", required=True)
+    p.add_argument("--grade", required=True)
+    p.add_argument("--show", action="store_true", help="показати вікно браузера")
+    p.set_defaults(fn=cmd_draft_one)
     args = ap.parse_args()
     try:
         return args.fn(args)
