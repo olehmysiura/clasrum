@@ -1,0 +1,26 @@
+# Секрети та локальний стан — НІКОЛИ не комітити
+credentials.json
+client_secret*.json
+token.json
+state.json
+config.yaml
+
+# Браузерний профіль (сесія Google) і скріншоти збоїв
+browser_profile/
+screenshots/
+
+# Робочі файли з текстами робіт студентів (персональні дані)
+work/
+history/
+exports/
+logs/
+
+# Положення — внутрішній документ коледжу
+criteria/*.pdf
+criteria/*.docx
+
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.auth_pending.json
