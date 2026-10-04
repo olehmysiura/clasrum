@@ -10,6 +10,11 @@ spreadsheet_id: ""
 # Скільки робіт максимум обробляти за один запуск
 max_submissions_per_run: 30
 
+# Що записувати в чернетку оцінки в Classroom (етап 2):
+#   national — оцінка за 5-бальною шкалою (2..5), рішення викладача від 04.10.2026
+#   points   — бали зі 100
+classroom_grade_scale: "national"
+
 # Етап 1: true — лише звіт у Sheets, у Classroom нічого не записується.
 dry_run: true
 
